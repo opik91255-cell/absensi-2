@@ -1,0 +1,24 @@
+<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Laporan kehadiran | Admin</title><link rel="stylesheet" href="../assets/css/style.css"></head><body>
+<div class="shell"><aside class="sidebar"><div class="brand">Hadir<span style="color:#a9c7b0">.</span><small>Panel pengelola</small></div><nav class="nav">
+<a href="index.html">Ringkasan</a><a href="peserta.html">Data Peserta</a>
+<a href="barcode.html">QR Sesi Bersama</a><a href="sesi.html">Sesi Absensi</a>
+<a href="scanner.html">Tampilkan QR</a><a href="kehadiran.html">Data Kehadiran</a>
+<a href="laporan.html">Laporan</a><a href="pengaturan.html">Pengaturan</a></nav><div class="bottom nav"><button onclick="signOut()">Keluar</button></div></aside>
+<main class="main"><div class="topline"><div><div class="eyebrow">Administrasi</div><h1>Laporan kehadiran</h1></div><span class="pill">Admin</span></div>
+<section class="panel"><div class="row"><div><h2>Rekap absensi</h2><p class="sub">Data seluruh peserta dan sesi.</p></div><button class="button primary" id="csv">Unduh CSV</button></div>
+<div class="table-wrap"><table><thead><tr><th>Nama</th><th>NIS/NIM</th><th>Sesi</th><th>Tanggal</th><th>Waktu hadir</th><th>Status</th></tr></thead><tbody id="records"></tbody></table></div></section>
+</main></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../assets/js/config.js"></script><script src="../assets/js/supabase.js"></script><script src="../assets/js/auth.js"></script>
+<script>let adminProfile; document.addEventListener("DOMContentLoaded", async()=>{adminProfile=await requireRole("admin"); if(!adminProfile)return; if(window.initPage) await initPage();});</script>
+<script>
+let rows=[];
+window.initPage=async()=>{
+ const {data,error}=await db.from("attendance").select("checked_at,status,profiles(full_name,student_number),attendance_sessions(title,session_date)").order("checked_at",{ascending:false});
+ if(error){showMessage("#message",error.message,"error");return;}rows=data||[];
+ document.getElementById("records").innerHTML=rows.map(r=>`<tr><td>${esc(r.profiles?.full_name)}</td><td>${esc(r.profiles?.student_number)}</td><td>${esc(r.attendance_sessions?.title)}</td><td>${r.attendance_sessions?.session_date||""}</td><td>${new Date(r.checked_at).toLocaleTimeString("id-ID")}</td><td><span class="pill">${esc(r.status)}</span></td></tr>`).join("")||'<tr><td colspan="6">Belum ada data.</td></tr>';
+ document.getElementById("csv").onclick=downloadCSV;
+};
+function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function downloadCSV(){const header=["Nama","NIS/NIM","Sesi","Tanggal","Waktu hadir","Status"];const lines=[header,...rows.map(r=>[r.profiles?.full_name,r.profiles?.student_number,r.attendance_sessions?.title,r.attendance_sessions?.session_date,new Date(r.checked_at).toLocaleString("id-ID"),r.status])];const csv=lines.map(row=>row.map(v=>'"'+String(v??"").replace(/"/g,'""')+'"').join(",")).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));a.download="rekap-absensi.csv";a.click();URL.revokeObjectURL(a.href);}
+</script>
+</body></html>

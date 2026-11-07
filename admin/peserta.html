@@ -1,0 +1,58 @@
+<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Data peserta | Admin</title><link rel="stylesheet" href="../assets/css/style.css"></head><body>
+<div class="shell"><aside class="sidebar"><div class="brand">Hadir<span style="color:#a9c7b0">.</span><small>Panel pengelola</small></div><nav class="nav">
+<a href="index.html">Ringkasan</a><a href="peserta.html">Data Peserta</a>
+<a href="barcode.html">QR Sesi Bersama</a><a href="sesi.html">Sesi Absensi</a>
+<a href="scanner.html">Tampilkan QR</a><a href="kehadiran.html">Data Kehadiran</a>
+<a href="laporan.html">Laporan</a><a href="pengaturan.html">Pengaturan</a></nav><div class="bottom nav"><button onclick="signOut()">Keluar</button></div></aside>
+<main class="main"><div class="topline"><div><div class="eyebrow">Administrasi</div><h1>Data peserta</h1></div><span class="pill">Admin</span></div>
+<section class="panel">
+<h2>Tambah akun peserta</h2><p class="sub">Akun dibuat dengan role peserta. Peserta tidak dapat mengubah data ini.</p>
+<div id="message" class="notice" hidden></div>
+<form id="addForm">
+ <div class="form-grid">
+  <div class="field"><label>Nama lengkap</label><input id="name" required></div>
+  <div class="field"><label>NIS / NIM</label><input id="studentNo" required></div>
+  <div class="field"><label>Email</label><input id="email" type="email" required></div>
+  <div class="field"><label>Password awal</label><input id="password" type="password" minlength="8" required></div>
+ </div><button class="button primary">Buat akun peserta</button>
+</form></section>
+<section class="panel section"><div class="row"><h2>Daftar peserta</h2><input id="search" placeholder="Cari nama atau nomor..." style="max-width:260px"></div>
+<div class="table-wrap"><table><thead><tr><th>Nama</th><th>NIS/NIM</th><th>Email</th><th>Aksi</th></tr></thead><tbody id="people"></tbody></table></div></section>
+</main></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../assets/js/config.js"></script><script src="../assets/js/supabase.js"></script><script src="../assets/js/auth.js"></script><script src="../assets/js/auth.js"></script>
+<script>let adminProfile; document.addEventListener("DOMContentLoaded", async()=>{adminProfile=await requireRole("admin"); if(!adminProfile)return; if(window.initPage) await initPage();});</script>
+<script>
+let people=[];
+window.initPage=async()=>{
+ await loadPeople();
+ document.getElementById("search").addEventListener("input",renderPeople);
+ document.getElementById("addForm").addEventListener("submit",createPerson);
+};
+async function loadPeople(){
+ const {data,error}=await db.from("profiles").select("id,full_name,student_number,email,role").eq("role","participant").order("full_name");
+ if(error){showMessage("#message",error.message,"error");return;} people=data||[];renderPeople();
+}
+function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function renderPeople(){
+ const q=document.getElementById("search").value.toLowerCase();
+ document.getElementById("people").innerHTML=people.filter(p=>(p.full_name+" "+p.student_number+" "+p.email).toLowerCase().includes(q)).map(p=>`<tr><td>${esc(p.full_name)}</td><td>${esc(p.student_number)}</td><td>${esc(p.email)}</td><td><button class="button danger" onclick="removePerson('${p.id}')">Hapus</button></td></tr>`).join("")||'<tr><td colspan="4">Peserta belum ada.</td></tr>';
+}
+async function createPerson(e){
+ e.preventDefault(); const b=e.submitter;b.disabled=true;
+ const payload={full_name:document.getElementById("name").value.trim(),student_number:document.getElementById("studentNo").value.trim(),email:document.getElementById("email").value.trim(),password:document.getElementById("password").value};
+ const {data:{session}}=await db.auth.getSession();
+ const {data,error}=await db.functions.invoke("create-participant",{body:payload,headers:{Authorization:`Bearer ${session.access_token}`}});
+ b.disabled=false;
+ if(error||data?.error){showMessage("#message",data?.error||error.message,"error");return;}
+ showMessage("#message","Akun peserta berhasil dibuat. Berikan email dan password awal kepada peserta.");
+ e.target.reset();await loadPeople();
+}
+async function removePerson(id){
+ if(!confirm("Hapus akun peserta beserta riwayat absensinya? Tindakan ini tidak dapat dibatalkan."))return;
+ const {data:{session}}=await db.auth.getSession();
+ const {data,error}=await db.functions.invoke("delete-participant",{body:{user_id:id},headers:{Authorization:`Bearer ${session.access_token}`}});
+ if(error||data?.error){showMessage("#message",data?.error||error.message,"error");return;}
+ showMessage("#message","Akun peserta berhasil dihapus.");await loadPeople();
+}
+</script>
+</body></html>

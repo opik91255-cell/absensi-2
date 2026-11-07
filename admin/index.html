@@ -1,0 +1,32 @@
+<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Ringkasan | Admin</title><link rel="stylesheet" href="../assets/css/style.css"></head><body>
+<div class="shell"><aside class="sidebar"><div class="brand">Hadir<span style="color:#a9c7b0">.</span><small>Panel pengelola</small></div><nav class="nav">
+<a href="index.html">Ringkasan</a><a href="peserta.html">Data Peserta</a>
+<a href="barcode.html">QR Sesi Bersama</a><a href="sesi.html">Sesi Absensi</a>
+<a href="scanner.html">Tampilkan QR</a><a href="kehadiran.html">Data Kehadiran</a>
+<a href="laporan.html">Laporan</a><a href="pengaturan.html">Pengaturan</a></nav><div class="bottom nav"><button onclick="signOut()">Keluar</button></div></aside>
+<main class="main"><div class="topline"><div><div class="eyebrow">Administrasi</div><h1>Ringkasan</h1></div><span class="pill">Admin</span></div>
+<div class="grid">
+  <section class="panel metric"><span>Total peserta</span><strong id="total">–</strong></section>
+  <section class="panel metric"><span>Sesi aktif</span><strong id="active">–</strong></section>
+  <section class="panel metric"><span>Hadir hari ini</span><strong id="today">–</strong></section>
+</div>
+<section class="panel section"><div class="row"><div><h2>Aktivitas terbaru</h2><p class="sub">Catatan absensi terakhir yang masuk.</p></div><a class="button" href="laporan.html">Lihat laporan</a></div>
+<div class="table-wrap"><table><thead><tr><th>Peserta</th><th>Sesi</th><th>Waktu</th><th>Status</th></tr></thead><tbody id="recent"></tbody></table></div></section>
+</main></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../assets/js/config.js"></script><script src="../assets/js/supabase.js"></script><script src="../assets/js/auth.js"></script>
+<script>let adminProfile; document.addEventListener("DOMContentLoaded", async()=>{adminProfile=await requireRole("admin"); if(!adminProfile)return; if(window.initPage) await initPage();});</script>
+<script>
+window.initPage=async()=>{
+ const [p,s,a]=await Promise.all([
+  db.from("profiles").select("id",{count:"exact",head:true}).eq("role","participant"),
+  db.from("attendance_sessions").select("id",{count:"exact",head:true}).eq("is_open",true),
+  db.from("attendance").select("id",{count:"exact",head:true}).gte("checked_at",new Date(new Date().setHours(0,0,0,0)).toISOString())
+ ]);
+ document.getElementById("total").textContent=p.count??0; document.getElementById("active").textContent=s.count??0; document.getElementById("today").textContent=a.count??0;
+ const {data,error}=await db.from("attendance").select("checked_at,status,profiles(full_name),attendance_sessions(title)").order("checked_at",{ascending:false}).limit(8);
+ if(error){showMessage("#none",error.message,"error");return;}
+ document.getElementById("recent").innerHTML=(data||[]).map(x=>`<tr><td>${esc(x.profiles?.full_name)}</td><td>${esc(x.attendance_sessions?.title)}</td><td>${new Date(x.checked_at).toLocaleString("id-ID")}</td><td><span class="pill">${esc(x.status)}</span></td></tr>`).join("")||'<tr><td colspan="4">Belum ada absensi.</td></tr>';
+};
+function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+</script>
+</body></html>

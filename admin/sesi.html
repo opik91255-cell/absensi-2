@@ -1,0 +1,22 @@
+<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sesi absensi | Admin</title><link rel="stylesheet" href="../assets/css/style.css"></head><body>
+<div class="shell"><aside class="sidebar"><div class="brand">Hadir<span style="color:#a9c7b0">.</span><small>Panel pengelola</small></div><nav class="nav">
+<a href="index.html">Ringkasan</a><a href="peserta.html">Data Peserta</a>
+<a href="barcode.html">QR Sesi Bersama</a><a href="sesi.html">Sesi Absensi</a>
+<a href="scanner.html">Tampilkan QR</a><a href="kehadiran.html">Data Kehadiran</a>
+<a href="laporan.html">Laporan</a><a href="pengaturan.html">Pengaturan</a></nav><div class="bottom nav"><button onclick="signOut()">Keluar</button></div></aside>
+<main class="main"><div class="topline"><div><div class="eyebrow">Administrasi</div><h1>Sesi absensi</h1></div><span class="pill">Admin</span></div>
+<section class="panel"><h2>Buat sesi baru</h2><div id="message" class="notice" hidden></div>
+<form id="sessionForm"><div class="form-grid"><div class="field"><label>Nama sesi</label><input id="title" placeholder="Contoh: Pertemuan 1" required></div><div class="field"><label>Tanggal</label><input id="date" type="date" required></div></div><button class="button primary">Buat sesi</button></form></section>
+<section class="panel section"><h2>Daftar sesi</h2><div class="table-wrap"><table><thead><tr><th>Sesi</th><th>Tanggal</th><th>Status</th><th>Aksi</th></tr></thead><tbody id="sessions"></tbody></table></div></section>
+</main></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../assets/js/config.js"></script><script src="../assets/js/supabase.js"></script><script src="../assets/js/auth.js"></script>
+<script>let adminProfile; document.addEventListener("DOMContentLoaded", async()=>{adminProfile=await requireRole("admin"); if(!adminProfile)return; if(window.initPage) await initPage();});</script>
+<script>
+window.initPage=async()=>{document.getElementById("date").value=new Date().toISOString().slice(0,10);document.getElementById("sessionForm").addEventListener("submit",createSession);await loadSessions();};
+async function loadSessions(){const {data,error}=await db.from("attendance_sessions").select("*").order("session_date",{ascending:false});if(error){showMessage("#message",error.message,"error");return;}
+document.getElementById("sessions").innerHTML=(data||[]).map(s=>`<tr><td>${esc(s.title)}</td><td>${s.session_date}</td><td><span class="pill">${s.is_open?"Dibuka":"Ditutup"}</span></td><td><button class="button" onclick="toggleSession('${s.id}',${!s.is_open})">${s.is_open?"Tutup":"Buka"}</button></td></tr>`).join("")||'<tr><td colspan="4">Belum ada sesi.</td></tr>';}
+async function createSession(e){e.preventDefault();const {error}=await db.from("attendance_sessions").insert({title:document.getElementById("title").value.trim(),session_date:document.getElementById("date").value,created_by:adminProfile.id});if(error){showMessage("#message",error.message,"error");return;}e.target.reset();document.getElementById("date").value=new Date().toISOString().slice(0,10);showMessage("#message","Sesi berhasil dibuat.");await loadSessions();}
+async function toggleSession(id,value){const {error}=await db.from("attendance_sessions").update({is_open:value}).eq("id",id);if(error){showMessage("#message",error.message,"error");return;}await loadSessions();}
+function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+</script>
+</body></html>
