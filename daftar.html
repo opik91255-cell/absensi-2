@@ -5,9 +5,34 @@ document.getElementById('registerForm').addEventListener('submit',async e=>{e.pr
  if(password!==confirm){showMessage('#message','Konfirmasi password tidak sama.','error');return;}
  if(!/^[a-z0-9._-]{3,30}$/.test(username)){showMessage('#message','Format username tidak valid.','error');return;}
  b.disabled=true;b.textContent='Membuat akun...';
- const {data,error}=await db.auth.signUp({email:usernameEmail(username),password,options:{data:{full_name:name,username,class_name:className}}});
- if(error){showMessage('#message',error.message,'error');b.disabled=false;b.textContent='Daftar akun';return;}
- if(data.session){showMessage('#message','Akun berhasil dibuat. Mengarahkan ke dashboard...','info');location.href='peserta/index.html';return;}
- showMessage('#message','Pendaftaran diterima. Jika konfirmasi email masih aktif, matikan Email Confirmations di Supabase Auth agar akun username tanpa email bisa langsung digunakan. Setelah itu login dengan username dan password.','info');b.disabled=false;b.textContent='Daftar akun';
+ try {
+   const { error: functionError } = await db.functions.invoke('register-participant', {
+     body: { full_name: name, username, class_name: className, password }
+   });
+   if (functionError) {
+     let message = functionError.message || 'Pendaftaran belum berhasil.';
+     try {
+       const context = functionError.context;
+       if (context && typeof context.json === 'function') {
+         const payload = await context.json();
+         if (payload && payload.error) message = payload.error;
+       }
+     } catch (_) {}
+     throw new Error(message);
+   }
+
+   const { error: loginError } = await db.auth.signInWithPassword({
+     email: usernameEmail(username), password
+   });
+   if (loginError) {
+     showMessage('#message','Akun berhasil dibuat. Silakan masuk menggunakan username dan password.','info');
+     b.disabled=false;b.textContent='Daftar akun';return;
+   }
+   showMessage('#message','Akun berhasil dibuat. Mengarahkan ke dashboard...','info');
+   location.href='peserta/index.html';
+ } catch (error) {
+   showMessage('#message',error.message || 'Pendaftaran gagal. Coba lagi.','error');
+   b.disabled=false;b.textContent='Daftar akun';
+ }
 });
 </script><script src="assets/js/mobile-keyboard.js"></script></body></html>
