@@ -1,0 +1,37 @@
+<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>QR Sesi Bersama | HADIR</title><link rel="stylesheet" href="../assets/css/style.css"></head><body>
+<div class="shell"><aside class="sidebar"><div class="brand">HADIR<span style="color:#bfdbfe">.</span><small>Panel pengelola</small></div>
+<nav class="nav"><a href="index.html">Ringkasan</a><a href="peserta.html">Data Peserta</a><a class="active" href="barcode.html">QR Sesi Bersama</a><a href="sesi.html">Sesi Absensi</a><a href="scanner.html">Tampilkan QR</a><a href="kehadiran.html">Data Kehadiran</a><a href="laporan.html">Laporan</a><a href="pengaturan.html">Pengaturan</a></nav><div class="bottom nav"><button onclick="signOut()">Keluar</button></div></aside>
+<main class="main"><div class="topline"><div><div class="eyebrow">Administrasi</div><h1>QR Absensi Bersama</h1><p class="sub">Satu QR untuk seluruh peserta pada sesi yang dibuka.</p></div><span class="pill">Admin</span></div>
+<section class="panel"><div id="message" class="notice" hidden></div><div class="field"><label for="session">Pilih sesi</label><select id="session"></select></div><p class="sub">QR hanya dapat digunakan ketika sesi dibuka. QR diperbarui saat sesi dibuka kembali.</p><div class="qr-area" style="max-width:420px;margin:20px auto"><div id="qrcode"></div><strong id="sessionName" style="margin-top:14px"></strong><p class="small">Peserta memindai dengan kamera HP atau membuka tautan ini.</p><a id="qrLink" href="#" target="_blank" rel="noopener" style="color:#2563eb;overflow-wrap:anywhere"></a></div><div class="row"><button id="download" class="button primary" type="button">Unduh QR PNG</button><button id="print" class="button" type="button" onclick="window.print()">Cetak QR</button></div></section></main></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="../assets/js/config.js"></script><script src="../assets/js/supabase.js"></script><script src="../assets/js/auth.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+let sessions=[];
+document.addEventListener("DOMContentLoaded",async()=>{
+ if(!await HADIR.guard("admin"))return;
+ const {data,error}=await db.from("attendance_sessions").select("id,title,session_date,is_open,session_qr_tokens(token)").order("session_date",{ascending:false});
+ if(error){showMessage("#message",error.message,"error");return;}
+ sessions=(data||[]).filter(x=>x.is_open);
+ const select=document.getElementById("session");
+ select.innerHTML=sessions.length?sessions.map(s=>`<option value="${s.id}">${HADIR.escape(s.title)} · ${s.session_date}</option>`).join(""):'<option value="">Belum ada sesi terbuka</option>';
+ select.addEventListener("change",renderQR);
+ document.getElementById("download").onclick=downloadQR;
+ renderQR();
+});
+function renderQR(){
+ const s=sessions.find(x=>x.id===document.getElementById("session").value);
+ const node=document.getElementById("qrcode");node.innerHTML="";
+ const token=s?.session_qr_tokens?.token;
+ document.getElementById("download").disabled=!token;
+ if(!token){document.getElementById("sessionName").textContent="Buka sesi di menu Sesi Absensi dahulu.";document.getElementById("qrLink").textContent="";return;}
+ const root=location.pathname.split('/admin/')[0];
+ const url=location.origin+root+'/peserta/scan.html?token='+encodeURIComponent(token);
+ new QRCode(node,{text:url,width:250,height:250,colorDark:'#1e293b',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
+ document.getElementById("sessionName").textContent=s.title+' · '+s.session_date;
+ const a=document.getElementById("qrLink");a.href=url;a.textContent=url;
+}
+function downloadQR(){
+ const el=document.querySelector('#qrcode canvas, #qrcode img');if(!el)return;
+ const url=el.tagName==='CANVAS'?el.toDataURL('image/png'):el.src;
+ const a=document.createElement('a');a.href=url;a.download='HADIR-QR-Sesi.png';a.click();
+}
+</script></body></html>
